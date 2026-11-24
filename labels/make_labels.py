@@ -16,23 +16,24 @@ pdfmetrics.registerFont(TTFont("ArchivoBlack", FONT_DIR))
 
 BASE = "https://carissageronimo.github.io/farm-plots/#"
 PLOTS = [f"{l}{n}" for l in "ABCDEFG" for n in (1, 2)]
-OUT = "out"
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
 os.makedirs(OUT, exist_ok=True)
 
 # Black-and-white logo: flatten alpha onto white, convert to greyscale.
-src = Image.open("logo.png").convert("RGBA")
+HERE = os.path.dirname(os.path.abspath(__file__))
+src = Image.open(os.path.join(HERE, "logo.png")).convert("RGBA")
 bg = Image.new("RGBA", src.size, "white")
 bg.alpha_composite(src)
 grey = bg.convert("L").point(lambda v: 0 if v < 200 else 255)
 grey = grey.resize((grey.width * 4, grey.height * 4), Image.LANCZOS)
-grey.save("logo_bw.png")
-LOGO = ImageReader("logo_bw.png")
+grey.save(os.path.join(HERE, "logo_bw.png"))
+LOGO = ImageReader(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_bw.png"))
 LOGO_RATIO = src.width / src.height
 
 W, H = landscape(A5)  # 210 x 148 mm
 
 
-def draw_label(c, code):
+def draw_label(c, code, scan_size=11):
     # Thick border
     m = 6 * mm
     c.setLineWidth(3 * mm)
@@ -85,21 +86,28 @@ def draw_label(c, code):
                  area_bot + (area_h - size * cap) / 2, code)
 
     # Scan line, small, under the QR
-    c.setFont("ArchivoBlack", 11)
     line = "Scan to see what is growing here"
-    lw = pdfmetrics.stringWidth(line, "ArchivoBlack", 11)
+    while pdfmetrics.stringWidth(line, "ArchivoBlack", scan_size) > qs:
+        scan_size -= 0.25
+    c.setFont("ArchivoBlack", scan_size)
+    lw = pdfmetrics.stringWidth(line, "ArchivoBlack", scan_size)
     c.drawString(qx + (qs - lw) / 2, inner_b + 1 * mm, line)
 
 
-combined = canvas.Canvas(f"{OUT}/all-plot-labels.pdf", pagesize=(W, H))
-combined.setTitle("Essentialist Vegetable Farm plot labels")
-for code in PLOTS:
-    c = canvas.Canvas(f"{OUT}/{code}.pdf", pagesize=(W, H))
-    c.setTitle(f"Plot {code} label")
-    draw_label(c, code)
-    c.showPage()
-    c.save()
-    draw_label(combined, code)
-    combined.showPage()
-combined.save()
-print("done", len(PLOTS))
+def main():
+    combined = canvas.Canvas(f"{OUT}/all-plot-labels.pdf", pagesize=(W, H))
+    combined.setTitle("Essentialist Vegetable Farm plot labels")
+    for code in PLOTS:
+        c = canvas.Canvas(f"{OUT}/{code}.pdf", pagesize=(W, H))
+        c.setTitle(f"Plot {code} label")
+        draw_label(c, code)
+        c.showPage()
+        c.save()
+        draw_label(combined, code)
+        combined.showPage()
+    combined.save()
+    print("done", len(PLOTS))
+
+
+if __name__ == "__main__":
+    main()
