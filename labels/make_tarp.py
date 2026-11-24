@@ -4,6 +4,7 @@ Sheet: 2.5 ft x 3 ft (762 x 914 mm), 3 columns x 5 rows of 210 x 148 mm labels.
 Cut along the crop marks: each piece comes out exactly A5 landscape.
 """
 import os
+import sys
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -26,8 +27,8 @@ def crop_marks(c, x, y, w, h, ln=5 * mm, off=1.5 * mm):
             c.line(cx, cy + sy * off, cx, cy + sy * (off + ln))   # vertical tick
 
 
-def main():
-    out = os.path.join(HERE, "tarp-plot-labels-2.5x3ft.pdf")
+def main(color=False):
+    out = os.path.join(HERE, "tarp-plot-labels-2.5x3ft" + ("-color" if color else "") + ".pdf")
     c = canvas.Canvas(out, pagesize=(SW, SH))
     c.setTitle("Essentialist Vegetable Farm plot labels - tarpaulin sheet 2.5 x 3 ft")
     for i, code in enumerate(L.PLOTS):
@@ -36,7 +37,7 @@ def main():
         y = SH - Y0 - (row + 1) * LH - row * GAP
         c.saveState()
         c.translate(x, y)
-        L.draw_label(c, code, scan_size=13)
+        L.draw_label(c, code, scan_size=13, color=color)
         c.restoreState()
         crop_marks(c, x, y, LW, LH)
     # Note in the empty 15th slot
@@ -53,4 +54,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(color="--color" in sys.argv)

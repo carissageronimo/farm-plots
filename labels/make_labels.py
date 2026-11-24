@@ -10,6 +10,7 @@ from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics import renderPDF
 from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import CMYKColor, black
 
 FONT_DIR = "/usr/share/fonts/truetype/google-fonts/ofl/archivoblack/ArchivoBlack-Regular.ttf"
 pdfmetrics.registerFont(TTFont("ArchivoBlack", FONT_DIR))
@@ -30,33 +31,58 @@ grey.save(os.path.join(HERE, "logo_bw.png"))
 LOGO = ImageReader(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_bw.png"))
 LOGO_RATIO = src.width / src.height
 
+# Colour version: logo mark in cream, reversed out of a deep brown band.
+# Deep brown is built mostly from black ink (K), which fades least in sun;
+# cream is near-paper, so the band keeps its contrast as it ages.
+BROWN = CMYKColor(0.10, 0.35, 0.65, 0.62)   # about #4F3B22, darker take on the logo brown
+CREAM = CMYKColor(0.00, 0.03, 0.12, 0.02)   # about #F9F2E0
+_m = bg.convert("L").point(lambda v: 255 if v < 200 else 0)
+cream = Image.new("RGBA", src.size, (249, 242, 224, 0))
+cream.putalpha(_m)
+cream = cream.resize((cream.width * 4, cream.height * 4), Image.LANCZOS)
+cream.save(os.path.join(HERE, "logo_cream.png"))
+LOGO_CREAM = ImageReader(os.path.join(HERE, "logo_cream.png"))
+
 W, H = landscape(A5)  # 210 x 148 mm
 
 
-def draw_label(c, code, scan_size=11):
-    # Thick border
+def draw_label(c, code, scan_size=11, color=False):
     m = 6 * mm
-    c.setLineWidth(3 * mm)
-    c.rect(m, m, W - 2 * m, H - 2 * m)
+    bw = 3 * mm
     inner_l, inner_r = m + 7 * mm, W - m - 7 * mm
     inner_t, inner_b = H - m - 6 * mm, m + 6 * mm
-
-    # Header: logo + farm name
     logo_h = 22 * mm
     logo_w = logo_h * LOGO_RATIO
-    c.drawImage(LOGO, inner_l, inner_t - logo_h, logo_w, logo_h, mask="auto")
     name = "Essentialist Vegetable Farm"
     size = 26
     max_w = inner_r - (inner_l + logo_w + 5 * mm)
     while pdfmetrics.stringWidth(name, "ArchivoBlack", size) > max_w:
         size -= 0.5
-    c.setFont("ArchivoBlack", size)
-    c.drawString(inner_l + logo_w + 5 * mm, inner_t - logo_h / 2 - size * 0.35, name)
 
-    # Rule under header
-    rule_y = inner_t - logo_h - 3 * mm
-    c.setLineWidth(1.2 * mm)
-    c.line(inner_l, rule_y, inner_r, rule_y)
+    if color:
+        # Deep brown band across the top, flush with the border
+        band_bot = inner_t - logo_h - 4 * mm
+        c.setFillColor(BROWN)
+        c.rect(m, band_bot, W - 2 * m, H - m - band_bot, stroke=0, fill=1)
+        c.drawImage(LOGO_CREAM, inner_l, inner_t - logo_h, logo_w, logo_h, mask="auto")
+        c.setFillColor(CREAM)
+        c.setFont("ArchivoBlack", size)
+        c.drawString(inner_l + logo_w + 5 * mm, inner_t - logo_h / 2 - size * 0.35, name)
+        c.setFillColor(black)
+        c.setStrokeColor(BROWN)
+        c.setLineWidth(bw)
+        c.rect(m, m, W - 2 * m, H - 2 * m)
+        c.setStrokeColor(black)
+        rule_y = band_bot
+    else:
+        c.setLineWidth(bw)
+        c.rect(m, m, W - 2 * m, H - 2 * m)
+        c.drawImage(LOGO, inner_l, inner_t - logo_h, logo_w, logo_h, mask="auto")
+        c.setFont("ArchivoBlack", size)
+        c.drawString(inner_l + logo_w + 5 * mm, inner_t - logo_h / 2 - size * 0.35, name)
+        rule_y = inner_t - logo_h - 3 * mm
+        c.setLineWidth(1.2 * mm)
+        c.line(inner_l, rule_y, inner_r, rule_y)
 
     # QR code, 86 mm, right side
     qs = 86 * mm
