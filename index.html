@@ -48,10 +48,11 @@ details .list{margin-top:10px}.row.done{opacity:.85}
 .index{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .index a{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
 .index a b{font-family:var(--fd);font-size:28px;color:var(--leaf)}.index a span{color:var(--muted);font-size:13px}
-.crops{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin:0 -4px;padding-inline:4px}
+.crops{display:flex;align-items:flex-start;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin:0 -4px;padding-inline:4px}
 .cc{flex:0 0 min(78%,280px);scroll-snap-align:start;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;margin:0}
-.cc .ph{aspect-ratio:4/3;background:var(--soft);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:44px;color:var(--leaf)}
-.cc img{width:100%;height:100%;object-fit:cover;display:block}
+.cc .ph{aspect-ratio:4/3;background:var(--soft);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:44px;color:var(--leaf);position:relative;overflow:hidden}
+.cc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.hint{margin:-4px 0 8px;font-size:13px;color:var(--muted)}
 .cc figcaption{padding:10px 12px;display:flex;flex-direction:column;gap:3px}
 .cc b{font-size:16px}.cc small{font-size:12px;color:var(--muted)}.cc small a{color:inherit}
 .cc .own{font-size:12px;font-weight:700;color:var(--leaf)}
@@ -121,7 +122,7 @@ function ckey(p){const c=p.crop.toLowerCase(),v=(p.variety||"").toLowerCase();
  if(c==="okra"&&v.includes("red"))return "okra-red";if(c==="tomato"&&v==="wild")return "tomato-wild";return c.replace(/[^a-z]+/g,"-")}
 function crops(items){
  const seen=new Map();items.forEach(p=>{const k=ckey(p);if(!seen.has(k))seen.set(k,p)});if(!seen.size)return null;
- const s=document.createElement("section");s.appendChild(h("h2",null,"What these crops look like"));const row=h("div","crops");
+ const s=document.createElement("section");s.appendChild(h("h2",null,"What these crops look like"));if(seen.size>1)s.appendChild(h("p","hint","Swipe to see all "+seen.size+" crops →"));const row=h("div","crops");
  seen.forEach((p,k)=>{const f=document.createElement("figure");f.className="cc";const ph=h("div","ph",p.crop[0]);const o=OWN[k],r=REF[k];
   if(o||r){const im=document.createElement("img");im.loading="lazy";im.decoding="async";im.src=o?o[0]:r[0];im.alt=p.crop+(p.variety?" ("+p.variety+")":"");
    im.addEventListener("error",()=>{im.remove();ph.textContent=p.crop[0]});ph.textContent="";ph.appendChild(im)}
