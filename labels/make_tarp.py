@@ -1,53 +1,69 @@
-"""All 14 A5 plot labels on one tarpaulin sheet, at actual size, with cut marks.
+"""All 14 A5 plot labels on one 2 x 3 ft tarpaulin sheet, at actual size, with cut marks.
 
-Sheet: 2.5 ft x 3 ft (762 x 914 mm), 3 columns x 5 rows of 210 x 148 mm labels.
-Cut along the crop marks: each piece comes out exactly A5 landscape.
+Sheet: 2 ft x 3 ft (610 x 914 mm), portrait. Labels are turned sideways
+(148 mm across, 210 mm down) in a 4 x 4 grid that shares cut lines, so cutting
+straight across and down on the marks gives 16 pieces of exactly A5:
+14 plot labels, 1 print note, 1 blank spare.
+
+    python3 make_tarp.py            black and white
+    python3 make_tarp.py --color    colour (deep brown band)
 """
 import os
 import sys
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
 import make_labels as L
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SW, SH = 762 * mm, 914 * mm          # 2.5 ft x 3 ft
-COLS, ROWS, GAP = 3, 5, 12 * mm
-LW, LH = L.W, L.H                    # 210 x 148 mm
-gw = COLS * LW + (COLS - 1) * GAP
-gh = ROWS * LH + (ROWS - 1) * GAP
-X0, Y0 = (SW - gw) / 2, (SH - gh) / 2
+SW, SH = 610 * mm, 914 * mm            # 2 ft x 3 ft
+COLS, ROWS = 4, 4
+CW, CH = L.H, L.W                      # cell = A5 turned sideways: 148 x 210 mm
+X0 = (SW - COLS * CW) / 2              # 9 mm side margins
+Y0 = (SH - ROWS * CH) / 2              # 37 mm top/bottom margins
 
 
-def crop_marks(c, x, y, w, h, ln=5 * mm, off=1.5 * mm):
+def cut_marks(c, ln=5 * mm, off=1.5 * mm):
+    """Ticks in the margins, in line with every cut."""
     c.setLineWidth(0.3 * mm)
-    for cx, sx in ((x, -1), (x + w, 1)):
-        for cy, sy in ((y, -1), (y + h, 1)):
-            c.line(cx + sx * off, cy, cx + sx * (off + ln), cy)   # horizontal tick
-            c.line(cx, cy + sy * off, cx, cy + sy * (off + ln))   # vertical tick
+    side = min(ln, X0 - off - 1 * mm)
+    for i in range(COLS + 1):
+        x = X0 + i * CW
+        c.line(x, Y0 - off, x, Y0 - off - ln)
+        c.line(x, SH - Y0 + off, x, SH - Y0 + off + ln)
+    for j in range(ROWS + 1):
+        y = Y0 + j * CH
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(SW - X0 + off, y, SW - X0 + off + side, y)
+
+
+def cell_origin(i):
+    col, row = i % COLS, i // COLS
+    return X0 + col * CW, SH - Y0 - (row + 1) * CH
 
 
 def main(color=False):
-    out = os.path.join(HERE, "tarp-plot-labels-2.5x3ft" + ("-color" if color else "") + ".pdf")
+    out = os.path.join(HERE, "tarp-plot-labels-2x3ft" + ("-color" if color else "") + ".pdf")
     c = canvas.Canvas(out, pagesize=(SW, SH))
-    c.setTitle("Essentialist Vegetable Farm plot labels - tarpaulin sheet 2.5 x 3 ft")
+    c.setTitle("Essentialist Vegetable Farm plot labels - tarpaulin sheet 2 x 3 ft")
     for i, code in enumerate(L.PLOTS):
-        col, row = i % COLS, i // COLS
-        x = X0 + col * (LW + GAP)
-        y = SH - Y0 - (row + 1) * LH - row * GAP
+        x, y = cell_origin(i)
         c.saveState()
-        c.translate(x, y)
+        c.translate(x + CW, y)          # label turned 90 degrees, reads bottom to top
+        c.rotate(90)
         L.draw_label(c, code, scan_size=13, color=color)
         c.restoreState()
-        crop_marks(c, x, y, LW, LH)
-    # Note in the empty 15th slot
-    x = X0 + 2 * (LW + GAP)
-    y = SH - Y0 - 5 * LH - 4 * GAP
+    # Print note in slot 15; slot 16 left blank as a spare
+    x, y = cell_origin(14)
+    c.saveState()
+    c.translate(x + CW, y)
+    c.rotate(90)
     c.setFont("ArchivoBlack", 14)
     lines = ["Essentialist Vegetable Farm", "14 plot labels, A5 (210 x 148 mm)",
-             "Print at 100% actual size.", "Cut on the crop marks."]
+             "Tarp 2 x 3 ft. Print at 100% actual size.", "Cut straight on the marks."]
     for j, t in enumerate(lines):
-        c.drawString(x + 8 * mm, y + LH - 25 * mm - j * 9 * mm, t)
+        c.drawString(12 * mm, L.H - 30 * mm - j * 10 * mm, t)
+    c.restoreState()
+    cut_marks(c)
     c.showPage()
     c.save()
     print(out)
