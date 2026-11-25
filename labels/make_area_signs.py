@@ -357,24 +357,49 @@ def no_smoking_min(c, cx, cy, r, colour):
     c.restoreState()
 
 
+def text_height2(s, w):
+    """Height text_block2 will use for this sign at width w (no height limit)."""
+    cap, lead = 0.72, 0.26
+    size = BIG
+    for t in s["lines"]:
+        size = fit(t, w, size)
+    sub = s.get("sub")
+    sub_size = fit(sub, w, size * 0.42) if sub else 0
+    total = len(s["lines"]) * size * cap + (len(s["lines"]) - 1) * size * lead
+    if sub:
+        total += size * 0.24 + sub_size * cap
+    return total
+
+
 def draw_sign2(c, s, style):
+    """Logo and words form one group, centred inside the border, with a fixed gap between them."""
     w, h = A4W, A4H
     g, brand, _ = STYLES[style]
     ground(c, w, h, style)
-    m = 7 * mm
-    head = 38 * mm
-    logo_h = 28 * mm
+    inner_l, inner_b = 7 * mm, 7 * mm
+    inner_w, inner_h = w - 14 * mm, h - 14 * mm
+    logo_h = 34 * mm
     logo_w = logo_h * L.LOGO_RATIO
-    c.drawImage(LOGOS[style], w / 2 - logo_w / 2, h - m - 5 * mm - logo_h, logo_w, logo_h, mask="auto")
-    bx, by = m + 12 * mm, m + 9 * mm
-    bw, bh = w - 2 * (m + 12 * mm), h - m - head - 4 * mm - by
+    gap = 11 * mm
+    bx = inner_l + 12 * mm
+    bw = inner_w - 24 * mm
     if s.get("nosmoke"):
-        r = bh * 0.25
-        no_smoking_min(c, bx + r + 2 * mm, by + bh / 2, r, white)
+        r = 34 * mm
         tx = bx + 2 * r + 14 * mm
-        text_block2(c, s, tx, by, bx + bw - tx, bh)
+        tw = bx + bw - tx
+        th = text_height2(s, tw)
+        body = max(2 * r, th)
     else:
-        text_block2(c, s, bx, by, bw, bh)
+        body = text_height2(s, bw)
+    group = logo_h + gap + body
+    gtop = inner_b + (inner_h + group) / 2
+    c.drawImage(LOGOS[style], w / 2 - logo_w / 2, gtop - logo_h, logo_w, logo_h, mask="auto")
+    by = gtop - logo_h - gap - body
+    if s.get("nosmoke"):
+        no_smoking_min(c, bx + r + 2 * mm, by + body / 2, r, white)
+        text_block2(c, s, tx, by, tw, body)
+    else:
+        text_block2(c, s, bx, by, bw, body)
 
 
 def no_smoking_sign(c, s, x, y, w, h):
@@ -518,7 +543,7 @@ def _small_sizes():
     cap = 0.72
     one = [s for s in SMALL if len(s["lines"]) == 1 and s.get("sub")]
     size = min(fit(s["lines"][0], bw, 200) for s in one)
-    sub = min(fit(s["sub"], bw, size * 0.42) for s in one)
+    sub = size * 0.62
     while size * cap + size * 0.24 + sub * cap > bh:
         size -= 1
         sub = min(sub, size * 0.42)
@@ -545,12 +570,13 @@ def draw_small(c, s, style):
         text_block(c, s["lines"], s.get("sub"), bx, by, bw, bh, color=white)
         return
     cap = 0.72
-    total = SMALL_SIZE * cap + SMALL_SIZE * 0.24 + SMALL_SUB * cap
+    sub_size = fit(s["sub"], bw, SMALL_SUB)
+    total = SMALL_SIZE * cap + SMALL_SIZE * 0.24 + sub_size * cap
     top = by + (bh + total) / 2
     c.setFillColor(white)
     c.setFont(F, SMALL_SIZE)
     c.drawCentredString(bx + bw / 2, top - SMALL_SIZE * cap, s["lines"][0])
-    c.setFont(F, SMALL_SUB)
+    c.setFont(F, sub_size)
     c.drawCentredString(bx + bw / 2, by + (bh - total) / 2, s["sub"])
 
 
