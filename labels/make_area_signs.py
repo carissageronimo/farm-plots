@@ -362,23 +362,39 @@ def draw_sign2(c, s, style):
     g, brand, _ = STYLES[style]
     ground(c, w, h, style)
     m = 7 * mm
-    head = 26 * mm
-    logo_h = 15 * mm
+    head = 38 * mm
+    logo_h = 28 * mm
     logo_w = logo_h * L.LOGO_RATIO
-    lx = m + 10 * mm
-    c.drawImage(LOGOS[style], lx, h - m - head / 2 - logo_h / 2 - 1 * mm, logo_w, logo_h, mask="auto")
-    c.setFillColor(brand)
-    c.setFont(F, 20)
-    c.drawString(lx + logo_w + 5 * mm, h - m - head / 2 - 20 * 0.36, FARM)
+    c.drawImage(LOGOS[style], w / 2 - logo_w / 2, h - m - 5 * mm - logo_h, logo_w, logo_h, mask="auto")
     bx, by = m + 12 * mm, m + 9 * mm
     bw, bh = w - 2 * (m + 12 * mm), h - m - head - 4 * mm - by
     if s.get("nosmoke"):
-        r = bh * 0.3
-        no_smoking_min(c, bx + r + 4 * mm, by + bh / 2, r, white)
-        tx = bx + 2 * r + 18 * mm
-        text_block2(c, s, tx, by, bx + bw - tx, bh)
+        no_smoking_sign(c, s, bx, by, bw, bh)
     else:
         text_block2(c, s, bx, by, bw, bh)
+
+
+def no_smoking_sign(c, s, x, y, w, h):
+    """Line 1: small line icon + NO; line 2: SMOKING at full size; then the sub line."""
+    cap, lead = 0.72, 0.26
+    size = min(BIG, fit("SMOKING", w, BIG))
+    sub = s.get("sub")
+    sub_size = fit(sub, w, size * 0.42)
+    total = 2 * size * cap + size * lead + size * 0.24 + sub_size * cap
+    top = y + (h + total) / 2
+    base1 = top - size * cap
+    base2 = base1 - size * (cap + lead)
+    r = size * cap * 0.62                   # icon a little taller than the letters
+    gap = 8 * mm
+    no_w = pdfmetrics.stringWidth("NO", F, size)
+    gx = x + (w - (2 * r + gap + no_w)) / 2
+    no_smoking_min(c, gx + r, base1 + size * cap / 2, r, white)
+    c.setFillColor(white)
+    c.setFont(F, size)
+    c.drawString(gx + 2 * r + gap, base1, "NO")
+    c.drawCentredString(x + w / 2, base2, "SMOKING")
+    c.setFont(F, sub_size)
+    c.drawCentredString(x + w / 2, y + (h - total) / 2, sub)
 
 
 def text_block2(c, s, x, y, w, h):
@@ -489,7 +505,7 @@ SMALL = [
 
 def _small_box():
     m = 7 * mm
-    logo_w = 20 * mm
+    logo_w = 24 * mm
     x = m + 6 * mm + logo_w + 5 * mm
     bx = x + 5 * mm
     return bx, m + 5 * mm, QW - m - 5 * mm - bx, QH - 2 * m - 10 * mm
@@ -514,7 +530,7 @@ def draw_small(c, s, style):
     g, brand, _ = STYLES[style]
     ground(c, w, h, style)
     m = 7 * mm
-    logo_w = 20 * mm
+    logo_w = 24 * mm
     logo_h = logo_w / L.LOGO_RATIO
     c.drawImage(LOGOS[style], m + 6 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
     x = m + 6 * mm + logo_w + 5 * mm
@@ -591,8 +607,7 @@ def main3():
 
 # ---- Fence signs (1/3 A4 lengthwise, 297 x 70 mm) and tarp v4 -----------------------------
 FW, FH = A4W, A4H / 3
-FENCE = dict(lines=["Salamat po sa hindi pagtatapon", "ng basura sa aming bakod."],
-             sub="Thank you for keeping our fence clean.")
+FENCE = dict(lines=["Salamat po sa hindi", "pagtatapon ng basura."], sub=None)
 
 
 def draw_fence(c, style, s=FENCE):
@@ -600,7 +615,7 @@ def draw_fence(c, style, s=FENCE):
     g, brand, _ = STYLES[style]
     ground(c, w, h, style)
     m = 7 * mm
-    logo_w = 22 * mm
+    logo_w = 26 * mm
     logo_h = logo_w / L.LOGO_RATIO
     c.drawImage(LOGOS[style], m + 6 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
     x = m + 6 * mm + logo_w + 5 * mm
@@ -608,8 +623,7 @@ def draw_fence(c, style, s=FENCE):
     c.setLineWidth(0.6 * mm)
     c.line(x, m + 5 * mm, x, h - m - 5 * mm)
     bx = x + 5 * mm
-    text_block(c, s["lines"], s["sub"], bx, m + 4 * mm, w - m - 5 * mm - bx, h - 2 * m - 8 * mm,
-               sub_ratio=0.62, gap_ratio=0.35, color=white)
+    text_block(c, s["lines"], s["sub"], bx, m + 3 * mm, w - m - 5 * mm - bx, h - 2 * m - 6 * mm, color=white)
 
 
 def tarp4(style):
