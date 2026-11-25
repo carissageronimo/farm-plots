@@ -295,5 +295,184 @@ def main():
     print(tarp(draw_sign_rev, draw_bin_rev, "tarp-area-signs-2x3ft-reverse"))
 
 
+
+
+# ---- Version 2 (Nov 25): one big letter size, minimal no-smoking icon, quarter-A4 bin labels --
+SIGNS2 = [
+    dict(lines=["POST-", "HARVEST", "AREA"]),
+    dict(lines=["WORK", "AREA"]),
+    dict(lines=["INPUTS &", "SHREDDER"]),
+    dict(lines=["COMPOST", "PIT"], sub="(Nabubulok)"),
+    dict(lines=["NO", "SMOKING"], sub="(Bawal manigarilyo)", nosmoke=True),
+]
+QW, QH = A4H, A4W / 4                       # quarter A4 crosswise: 210 x 74.25 mm
+LOGO_BROWN_C = CMYKColor(0.15, 0.32, 0.62, 0.30)   # close to the logo brown, readable on black
+STYLES = {
+    # name: ground, brand colour, brand logo image
+    "brown": (L.BROWN, L.CREAM, None),
+    "black": (black, LOGO_BROWN_C, None),
+}
+
+
+def _logo_img(colour_rgb, key):
+    im = Image.new("RGBA", L.src.size, colour_rgb + (0,))
+    im.putalpha(L._m)
+    im = im.resize((im.width * 4, im.height * 4), Image.LANCZOS)
+    p = os.path.join(HERE, f"logo_{key}.png")
+    im.save(p)
+    return ImageReader(p)
+
+
+LOGOS = {"brown": _logo_img((249, 242, 224), "cream2"), "black": _logo_img((150, 122, 78), "brown2")}
+BIG = 120  # pt: the INPUTS & SHREDDER size, used for every sign
+
+
+def ground(c, w, h, style):
+    g, brand, _ = STYLES[style]
+    c.setFillColor(g)
+    c.rect(0, 0, w, h, stroke=0, fill=1)
+    c.setStrokeColor(brand)
+    c.setLineWidth(1.2 * mm)
+    c.rect(7 * mm, 7 * mm, w - 14 * mm, h - 14 * mm)
+
+
+def no_smoking_min(c, cx, cy, r, colour):
+    """Minimal line icon: outlined cigarette, small wisp, thin circle and slash, one colour."""
+    c.saveState()
+    c.setStrokeColor(colour)
+    lw = r * 0.075
+    c.setLineWidth(lw)
+    cw, ch = r * 1.15, r * 0.2
+    x0, y0 = cx - cw / 2, cy - ch / 2
+    c.roundRect(x0, y0, cw, ch, ch * 0.2, stroke=1, fill=0)
+    c.line(x0 + cw * 0.3, y0, x0 + cw * 0.3, y0 + ch)
+    p = c.beginPath()
+    sx = x0 + cw * 0.9
+    p.moveTo(sx, y0 + ch + r * 0.1)
+    p.curveTo(sx - r * 0.1, cy + r * 0.32, sx + r * 0.1, cy + r * 0.4, sx, cy + r * 0.55)
+    c.drawPath(p, stroke=1, fill=0)
+    c.circle(cx, cy, r, stroke=1, fill=0)
+    d = r * 0.7071
+    c.line(cx - d, cy + d, cx + d, cy - d)
+    c.restoreState()
+
+
+def draw_sign2(c, s, style):
+    w, h = A4W, A4H
+    g, brand, _ = STYLES[style]
+    ground(c, w, h, style)
+    m = 7 * mm
+    head = 26 * mm
+    logo_h = 15 * mm
+    logo_w = logo_h * L.LOGO_RATIO
+    lx = m + 10 * mm
+    c.drawImage(LOGOS[style], lx, h - m - head / 2 - logo_h / 2 - 1 * mm, logo_w, logo_h, mask="auto")
+    c.setFillColor(brand)
+    c.setFont(F, 20)
+    c.drawString(lx + logo_w + 5 * mm, h - m - head / 2 - 20 * 0.36, FARM)
+    bx, by = m + 12 * mm, m + 9 * mm
+    bw, bh = w - 2 * (m + 12 * mm), h - m - head - 4 * mm - by
+    if s.get("nosmoke"):
+        r = bh * 0.3
+        no_smoking_min(c, bx + r + 4 * mm, by + bh / 2, r, white)
+        tx = bx + 2 * r + 18 * mm
+        text_block2(c, s, tx, by, bx + bw - tx, bh)
+    else:
+        text_block2(c, s, bx, by, bw, bh)
+
+
+def text_block2(c, s, x, y, w, h):
+    cap, lead = 0.72, 0.26
+    lines, sub = s["lines"], s.get("sub")
+    size = BIG
+    for t in lines:
+        size = fit(t, w, size)
+    sub_size = fit(sub, w, size * 0.42) if sub else 0
+    total = len(lines) * size * cap + (len(lines) - 1) * size * lead
+    if sub:
+        total += size * 0.24 + sub_size * cap
+    while total > h:  # safety, should not trigger
+        size -= 2
+        sub_size = fit(sub, w, size * 0.42) if sub else 0
+        total = len(lines) * size * cap + (len(lines) - 1) * size * lead + ((size * 0.24 + sub_size * cap) if sub else 0)
+    top = y + (h + total) / 2
+    c.setFillColor(white)
+    c.setFont(F, size)
+    for i, t in enumerate(lines):
+        c.drawCentredString(x + w / 2, top - size * cap - i * size * (cap + lead), t)
+    if sub:
+        c.setFont(F, sub_size)
+        c.drawCentredString(x + w / 2, y + (h - total) / 2, sub)
+
+
+def draw_bin2(c, style, s=BIN):
+    w, h = QW, QH
+    g, brand, _ = STYLES[style]
+    ground(c, w, h, style)
+    m = 7 * mm
+    logo_w = 20 * mm
+    logo_h = logo_w / L.LOGO_RATIO
+    c.drawImage(LOGOS[style], m + 6 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
+    x = m + 6 * mm + logo_w + 5 * mm
+    c.setStrokeColor(brand)
+    c.setLineWidth(0.6 * mm)
+    c.line(x, m + 6 * mm, x, h - m - 6 * mm)
+    bx = x + 5 * mm
+    text_block(c, s["lines"], s.get("sub"), bx, m + 5 * mm, w - m - 5 * mm - bx, h - 2 * m - 10 * mm,
+               sub_ratio=0.3, gap_ratio=0.22, color=white)
+
+
+def tarp2(style):
+    SW, SH = 610 * mm, 914 * mm
+    X0 = (SW - 2 * A4W) / 2                # 8 mm sides
+    top = SH - 37 * mm
+    out = os.path.join(HERE, f"tarp-area-signs-2x3ft-{style}.pdf")
+    c = canvas.Canvas(out, pagesize=(SW, SH))
+    c.setTitle(f"Essentialist Vegetable Farm area signs - tarpaulin 2 x 3 ft ({style})")
+    for i, s in enumerate(SIGNS2):
+        col, row = i % 2, i // 2
+        place(c, X0 + col * A4W, top - (row + 1) * A4H, draw_sign2, s, style)
+    gb = top - 3 * A4H                     # bottom of the A4 grid
+    by = gb - 20 * mm - QH                 # bin labels row
+    for k in range(2):
+        place(c, X0 + k * QW, by, draw_bin2, style)
+    c.setStrokeColor(black)
+    c.setLineWidth(0.3 * mm)
+    ln, off = 5 * mm, 1.5 * mm
+    side = X0 - off - 1 * mm
+    for x in (X0, X0 + A4W, X0 + 2 * A4W):          # A4 columns: marks above and just below the grid
+        c.line(x, top + off, x, top + off + ln)
+        c.line(x, gb - off, x, gb - off - ln)
+    for y in (top, top - A4H, top - 2 * A4H, gb):
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(SW - X0 + off, y, SW - X0 + off + side, y)
+    for x in (X0, X0 + QW, X0 + 2 * QW):            # bin labels
+        c.line(x, by - off, x, by - off - ln)
+        c.line(x, by + QH + off, x, by + QH + off + ln)
+    for y in (by, by + QH):
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(X0 + 2 * QW + off, y, X0 + 2 * QW + off + ln, y)
+    c.showPage()
+    c.save()
+    return out
+
+
+def main2():
+    for style in STYLES:
+        c = canvas.Canvas(os.path.join(HERE, f"area-signs-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm area signs (A4, {style})")
+        for s in SIGNS2:
+            draw_sign2(c, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"bin-labels-quarter-a4-{style}.pdf"), pagesize=(A4H, A4W))
+        c.setTitle(f"Essentialist Vegetable Farm bin labels (quarter A4, {style})")
+        for k in range(2):                   # 2 labels on one A4 portrait sheet, top half
+            place(c, 0, A4W - (k + 1) * QH, draw_bin2, style)
+        c.showPage()
+        c.save()
+        print(tarp2(style))
+
+
 if __name__ == "__main__":
-    main()
+    main2()
