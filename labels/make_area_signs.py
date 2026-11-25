@@ -369,7 +369,10 @@ def draw_sign2(c, s, style):
     bx, by = m + 12 * mm, m + 9 * mm
     bw, bh = w - 2 * (m + 12 * mm), h - m - head - 4 * mm - by
     if s.get("nosmoke"):
-        no_smoking_sign(c, s, bx, by, bw, bh)
+        r = bh * 0.25
+        no_smoking_min(c, bx + r + 2 * mm, by + bh / 2, r, white)
+        tx = bx + 2 * r + 14 * mm
+        text_block2(c, s, tx, by, bx + bw - tx, bh)
     else:
         text_block2(c, s, bx, by, bw, bh)
 
@@ -498,8 +501,7 @@ SMALL = [
     dict(lines=["WALANG TALIM"], sub="(Dull tools)"),
     dict(lines=["WASH AREA"], sub="(Soiled)"),
     dict(lines=["WASH AREA"], sub="(Leafy)"),
-    dict(lines=["PANDILIG"], sub="(Watering cans)"),
-    dict(lines=["PE PIPES"], sub="(Mga tubo)"),
+    dict(lines=["PANDILIG &", "PE PIPES"], sub=None),
 ]
 
 
@@ -514,8 +516,9 @@ def _small_box():
 def _small_sizes():
     bx, by, bw, bh = _small_box()
     cap = 0.72
-    size = min(fit(s["lines"][0], bw, 200) for s in SMALL)
-    sub = min(fit(s["sub"], bw, size * 0.42) for s in SMALL)
+    one = [s for s in SMALL if len(s["lines"]) == 1 and s.get("sub")]
+    size = min(fit(s["lines"][0], bw, 200) for s in one)
+    sub = min(fit(s["sub"], bw, size * 0.42) for s in one)
     while size * cap + size * 0.24 + sub * cap > bh:
         size -= 1
         sub = min(sub, size * 0.42)
@@ -538,6 +541,9 @@ def draw_small(c, s, style):
     c.setLineWidth(0.6 * mm)
     c.line(x, m + 6 * mm, x, h - m - 6 * mm)
     bx, by, bw, bh = _small_box()
+    if len(s["lines"]) > 1 or not s.get("sub"):
+        text_block(c, s["lines"], s.get("sub"), bx, by, bw, bh, color=white)
+        return
     cap = 0.72
     total = SMALL_SIZE * cap + SMALL_SIZE * 0.24 + SMALL_SUB * cap
     top = by + (bh + total) / 2
@@ -607,7 +613,7 @@ def main3():
 
 # ---- Fence signs (1/3 A4 lengthwise, 297 x 70 mm) and tarp v4 -----------------------------
 FW, FH = A4W, A4H / 3
-FENCE = dict(lines=["Salamat po sa hindi", "pagtatapon ng basura."], sub=None)
+FENCE = dict(lines=["Salamat po sa hindi", "pagkakalat ng basura."], sub="(Thank you for not littering.)")
 
 
 def draw_fence(c, style, s=FENCE):
@@ -623,7 +629,8 @@ def draw_fence(c, style, s=FENCE):
     c.setLineWidth(0.6 * mm)
     c.line(x, m + 5 * mm, x, h - m - 5 * mm)
     bx = x + 5 * mm
-    text_block(c, s["lines"], s["sub"], bx, m + 3 * mm, w - m - 5 * mm - bx, h - 2 * m - 6 * mm, color=white)
+    text_block(c, s["lines"], s["sub"], bx, m + 3 * mm, w - m - 5 * mm - bx, h - 2 * m - 6 * mm,
+               sub_ratio=0.55, gap_ratio=0.3, color=white)
 
 
 def tarp4(style):
@@ -645,7 +652,7 @@ def tarp4(style):
         col, row = i % 2, i // 2
         place(c, X0 + col * QW, sy_top - (row + 1) * QH, draw_small, s, style)
     rx = X0 + 2 * QW                        # 2 more, turned sideways, in the strip to the right
-    for k, s in enumerate(SMALL[6:8]):
+    for k, s in enumerate(SMALL[6:7]):
         x = rx + k * QH
         c.saveState()
         c.translate(x + QH, sy_top - QW)
@@ -665,17 +672,19 @@ def tarp4(style):
         c.line(SW - X0 + off, y, SW - X0 + off + side, y)
     for y in (gb + FH, gb + 2 * FH):        # fence sign cuts, right column only
         c.line(SW - X0 + off, y, SW - X0 + off + side, y)
-    for x in (X0, X0 + QW, X0 + 2 * QW, rx + QH, rx + 2 * QH):
+    n_side = len(SMALL) - 6
+    for x in [X0, X0 + QW, X0 + 2 * QW] + [rx + (k + 1) * QH for k in range(n_side)]:
         c.line(x, sy_top + off, x, sy_top + off + short)
     for x in (X0, X0 + QW, X0 + 2 * QW):
         c.line(x, sb - off, x, sb - off - ln)
-    for x in (rx + QH, rx + 2 * QH):
+    for x in [rx] + [rx + (k + 1) * QH for k in range(n_side)]:
         c.line(x, sy_top - QW - off, x, sy_top - QW - off - ln)
     for k in range(4):
         y = sy_top - k * QH
         c.line(X0 - off, y, X0 - off - side, y)
-    c.line(rx + 2 * QH + off, sy_top, rx + 2 * QH + off + side, sy_top)
-    c.line(rx + 2 * QH + off, sy_top - QW, rx + 2 * QH + off + side, sy_top - QW)
+    ex = rx + n_side * QH
+    c.line(ex + off, sy_top, ex + off + side, sy_top)
+    c.line(ex + off, sy_top - QW, ex + off + side, sy_top - QW)
     c.showPage()
     c.save()
     return out
