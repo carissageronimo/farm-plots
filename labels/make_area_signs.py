@@ -474,5 +474,118 @@ def main2():
         print(tarp2(style))
 
 
+# ---- Small labels (quarter A4 crosswise, 210 x 74.25 mm), one shared letter size -------------
+SMALL = [
+    dict(lines=["BASURA"], sub="(Di nabubulok / Non-biodegradable)"),
+    dict(lines=["BASURA"], sub="(Di nabubulok / Non-biodegradable)"),
+    dict(lines=["MATATALAS"], sub="(Sharp tools)"),
+    dict(lines=["WALANG TALIM"], sub="(Dull tools)"),
+    dict(lines=["WASH AREA"], sub="(Soiled)"),
+    dict(lines=["WASH AREA"], sub="(Leafy)"),
+]
+
+
+def _small_box():
+    m = 7 * mm
+    logo_w = 20 * mm
+    x = m + 6 * mm + logo_w + 5 * mm
+    bx = x + 5 * mm
+    return bx, m + 5 * mm, QW - m - 5 * mm - bx, QH - 2 * m - 10 * mm
+
+
+def _small_sizes():
+    bx, by, bw, bh = _small_box()
+    cap = 0.72
+    size = min(fit(s["lines"][0], bw, 200) for s in SMALL)
+    sub = min(fit(s["sub"], bw, size * 0.42) for s in SMALL)
+    while size * cap + size * 0.24 + sub * cap > bh:
+        size -= 1
+        sub = min(sub, size * 0.42)
+    return size, sub
+
+
+SMALL_SIZE, SMALL_SUB = _small_sizes()
+
+
+def draw_small(c, s, style):
+    w, h = QW, QH
+    g, brand, _ = STYLES[style]
+    ground(c, w, h, style)
+    m = 7 * mm
+    logo_w = 20 * mm
+    logo_h = logo_w / L.LOGO_RATIO
+    c.drawImage(LOGOS[style], m + 6 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
+    x = m + 6 * mm + logo_w + 5 * mm
+    c.setStrokeColor(brand)
+    c.setLineWidth(0.6 * mm)
+    c.line(x, m + 6 * mm, x, h - m - 6 * mm)
+    bx, by, bw, bh = _small_box()
+    cap = 0.72
+    total = SMALL_SIZE * cap + SMALL_SIZE * 0.24 + SMALL_SUB * cap
+    top = by + (bh + total) / 2
+    c.setFillColor(white)
+    c.setFont(F, SMALL_SIZE)
+    c.drawCentredString(bx + bw / 2, top - SMALL_SIZE * cap, s["lines"][0])
+    c.setFont(F, SMALL_SUB)
+    c.drawCentredString(bx + bw / 2, by + (bh - total) / 2, s["sub"])
+
+
+def tarp3(style):
+    SW, SH = 610 * mm, 914 * mm
+    X0 = (SW - 2 * A4W) / 2                # 8 mm sides
+    top = SH - 37 * mm
+    out = os.path.join(HERE, f"tarp-area-signs-2x3ft-{style}.pdf")
+    c = canvas.Canvas(out, pagesize=(SW, SH))
+    c.setTitle(f"Essentialist Vegetable Farm area signs and small labels - tarpaulin 2 x 3 ft ({style})")
+    for i, s in enumerate(SIGNS2):
+        col, row = i % 2, i // 2
+        place(c, X0 + col * A4W, top - (row + 1) * A4H, draw_sign2, s, style)
+    gb = top - 3 * A4H                     # bottom of the A4 grid
+    sy_top = gb - 10 * mm                  # small labels: 2 columns x 3 rows below
+    for i, s in enumerate(SMALL):
+        col, row = i % 2, i // 2
+        place(c, X0 + col * QW, sy_top - (row + 1) * QH, draw_small, s, style)
+    sb = sy_top - 3 * QH
+    c.setStrokeColor(black)
+    c.setLineWidth(0.3 * mm)
+    ln, off = 5 * mm, 1.5 * mm
+    side = X0 - off - 1 * mm
+    short = 3 * mm                          # marks in the 10 mm gap between blocks
+    for x in (X0, X0 + A4W, X0 + 2 * A4W):
+        c.line(x, top + off, x, top + off + ln)
+        c.line(x, gb - off, x, gb - off - short)
+    for y in (top, top - A4H, top - 2 * A4H, gb):
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(SW - X0 + off, y, SW - X0 + off + side, y)
+    for x in (X0, X0 + QW, X0 + 2 * QW):
+        c.line(x, sy_top + off, x, sy_top + off + short)
+        c.line(x, sb - off, x, sb - off - ln)
+    for k in range(4):
+        y = sy_top - k * QH
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(X0 + 2 * QW + off, y, X0 + 2 * QW + off + ln, y)
+    c.showPage()
+    c.save()
+    return out
+
+
+def main3():
+    for style in STYLES:
+        c = canvas.Canvas(os.path.join(HERE, f"area-signs-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm area signs (A4, {style})")
+        for s in SIGNS2:
+            draw_sign2(c, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"small-labels-quarter-a4-{style}.pdf"), pagesize=(A4H, A4W))
+        c.setTitle(f"Essentialist Vegetable Farm small labels (quarter A4, {style})")
+        for p in range(0, len(SMALL), 4):    # 4 labels per A4 portrait page, cut crosswise
+            for k, s in enumerate(SMALL[p:p + 4]):
+                place(c, 0, A4W - (k + 1) * QH, draw_small, s, style)
+            c.showPage()
+        c.save()
+        print(tarp3(style))
+
+
 if __name__ == "__main__":
-    main2()
+    main3()
