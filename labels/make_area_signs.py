@@ -527,6 +527,8 @@ SMALL = [
     dict(lines=["WASH AREA"], sub="(Soiled)"),
     dict(lines=["WASH AREA"], sub="(Leafy)"),
     dict(lines=["PANDILIG &", "PE PIPES"], sub=None),
+    dict(lines=["TOILET"], sub="(CR)"),
+    dict(lines=["PATULUAN"], sub="(Drip-dry area)"),
 ]
 
 
@@ -740,5 +742,107 @@ def main4():
         print(tarp4(style))
 
 
+# ---- Tarp v5 (Nov 25): two independent 297 mm columns, 2 fence signs, 9 small labels ----------
+def _rot(c, x, y, fn, *a):
+    """Draw a quarter-A4 label turned sideways: occupies x..x+QH, y..y+QW."""
+    c.saveState()
+    c.translate(x + QH, y)
+    c.rotate(90)
+    fn(c, *a)
+    c.restoreState()
+
+
+def tarp5(style):
+    SW, SH = 610 * mm, 914 * mm
+    X0 = (SW - 2 * A4W) / 2                 # 8 mm sides
+    TOP = SH - 22 * mm
+    GAP = 6 * mm
+    XL, XR = X0, X0 + A4W
+    by_name = {}
+    order = [s for s in SMALL]
+    left_h = order[0:3]                     # BASURA, BASURA, MATATALAS
+    right_h = order[3:6] + [order[8]]       # WALANG TALIM, WASH (Soiled), WASH (Leafy), PATULUAN
+    left_side = order[7]                    # TOILET (sideways)
+    right_side = order[6]                   # PANDILIG & PE PIPES (sideways)
+    out = os.path.join(HERE, f"tarp-area-signs-2x3ft-{style}.pdf")
+    c = canvas.Canvas(out, pagesize=(SW, SH))
+    c.setTitle(f"Essentialist Vegetable Farm signs and labels - tarpaulin 2 x 3 ft ({style})")
+    # left column: POST-HARVEST, INPUTS, NO SMOKING
+    for k, s in enumerate([SIGNS2[0], SIGNS2[2], SIGNS2[4]]):
+        place(c, XL, TOP - (k + 1) * A4H, draw_sign2, s, style)
+    lgb = TOP - 3 * A4H
+    lbt = lgb - GAP
+    for k, s in enumerate(left_h):
+        place(c, XL, lbt - (k + 1) * QH, draw_small, s, style)
+    _rot(c, XL + QW, lbt - QW, draw_small, left_side, style)
+    # right column: WORK, COMPOST, 2 fence signs
+    for k, s in enumerate([SIGNS2[1], SIGNS2[3]]):
+        place(c, XR, TOP - (k + 1) * A4H, draw_sign2, s, style)
+    for k in range(2):
+        place(c, XR, TOP - 2 * A4H - (k + 1) * FH, draw_fence, style)
+    rgb = TOP - 2 * A4H - 2 * FH
+    rbt = rgb - GAP
+    for k, s in enumerate(right_h):
+        place(c, XR, rbt - (k + 1) * QH, draw_small, s, style)
+    _rot(c, XR + QW, rbt - QW, draw_small, right_side, style)
+
+    # ---- cut marks
+    c.setStrokeColor(black)
+    c.setLineWidth(0.3 * mm)
+    ln, off = 5 * mm, 1.5 * mm
+    side = X0 - off - 1 * mm
+    def tick_v(x, y, down=True, L=ln):
+        c.line(x, y - off if down else y + off, x, (y - off - L) if down else (y + off + L))
+    def tick_h(x, y, left=True, L=side):
+        c.line(x - off if left else x + off, y, (x - off - L) if left else (x + off + L), y)
+    # 1. the long cut between the columns, and the outer edges
+    for x in (XL, XR, XR + A4W):
+        tick_v(x, TOP, down=False)
+    lbb, rbb = lbt - 3 * QH, rbt - 4 * QH
+    bottom = min(lbb, rbb)
+    for x in (XL, XR, XR + A4W):
+        tick_v(x, bottom)
+    # 2. left column cuts (marks on the left margin)
+    for y in [TOP, TOP - A4H, TOP - 2 * A4H, lgb, lbt] + [lbt - (k + 1) * QH for k in range(3)]:
+        tick_h(XL, y)
+    # 3. right column cuts (marks on the right margin)
+    for y in [TOP, TOP - A4H, TOP - 2 * A4H, TOP - 2 * A4H - FH, rgb, rbt] + [rbt - (k + 1) * QH for k in range(4)]:
+        tick_h(XR + A4W, y, left=False)
+    # 4. inside each small-label block: the vertical cut beside the sideways label, its far edge,
+    #    and the sideways label's bottom edge (ticks in the waste strip beside it)
+    for (x0, bt, bb) in ((XL, lbt, lbb), (XR, rbt, rbb)):
+        for x in (x0 + QW, x0 + QW + QH):
+            c.line(x, bb - off, x, bb - off - 3 * mm)
+        w = A4W - QW - QH                     # waste strip width (12.75 mm)
+        c.line(x0 + QW + QH + 0.8 * mm, bt - QW, x0 + QW + QH + w - 0.8 * mm, bt - QW)
+    c.showPage()
+    c.save()
+    return out
+
+
+def main5():
+    for style in STYLES:
+        c = canvas.Canvas(os.path.join(HERE, f"area-signs-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm area signs (A4, {style})")
+        for s in SIGNS2:
+            draw_sign2(c, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"small-labels-quarter-a4-{style}.pdf"), pagesize=(A4H, A4W))
+        c.setTitle(f"Essentialist Vegetable Farm small labels (quarter A4, {style})")
+        for p in range(0, len(SMALL), 4):
+            for k, s in enumerate(SMALL[p:p + 4]):
+                place(c, 0, A4W - (k + 1) * QH, draw_small, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"fence-signs-third-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm fence signs (1/3 A4, {style})")
+        for k in range(2):
+            place(c, 0, A4H - (k + 1) * FH, draw_fence, style)
+        c.showPage()
+        c.save()
+        print(tarp5(style))
+
+
 if __name__ == "__main__":
-    main4()
+    main5()
