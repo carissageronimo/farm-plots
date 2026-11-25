@@ -16,6 +16,8 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.colors import CMYKColor, black, white
 import make_labels as L
+from PIL import Image
+from reportlab.lib.utils import ImageReader
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 F = "ArchivoBlack"
@@ -49,7 +51,7 @@ def border(c, w, h):
     c.setStrokeColor(black)
 
 
-def text_block(c, lines, sub, x, y, w, h, sub_ratio=0.5, gap_ratio=0.22):
+def text_block(c, lines, sub, x, y, w, h, sub_ratio=0.5, gap_ratio=0.22, color=black):
     """Centre the main lines (+ optional sub line) in the box (x, y, w, h)."""
     cap = 0.72  # cap height ratio, Archivo Black
     size = 400
@@ -64,7 +66,7 @@ def text_block(c, lines, sub, x, y, w, h, sub_ratio=0.5, gap_ratio=0.22):
             break
         size -= 2
     top = y + (h + total) / 2
-    c.setFillColor(black)
+    c.setFillColor(color)
     c.setFont(F, size)
     for i, t in enumerate(lines):
         base = top - size * cap - i * size * (cap + 0.28)
@@ -74,17 +76,18 @@ def text_block(c, lines, sub, x, y, w, h, sub_ratio=0.5, gap_ratio=0.22):
         c.drawCentredString(x + w / 2, y + (h - total) / 2, sub)
 
 
-def no_smoking(c, cx, cy, r):
+def no_smoking(c, cx, cy, r, inv=False):
     """Universal no-smoking symbol: cigarette under a red circle and slash."""
     c.saveState()
     # cigarette
     lw, lh = r * 1.35, r * 0.24
     x0, y0 = cx - lw / 2, cy - lh / 2
-    c.setFillColor(white)
-    c.setStrokeColor(black)
+    fg, bg = (white, black) if inv else (black, white)
+    c.setFillColor(bg)
+    c.setStrokeColor(fg)
     c.setLineWidth(r * 0.05)
     c.rect(x0, y0, lw, lh, fill=1, stroke=1)
-    c.setFillColor(black)
+    c.setFillColor(fg)
     c.rect(x0, y0, lw * 0.28, lh, fill=1, stroke=0)          # filter
     c.rect(x0 + lw * 0.93, y0, lw * 0.07, lh, fill=1, stroke=0)  # lit end
     # smoke
@@ -156,12 +159,14 @@ def place(c, x, y, fn, *a):
     c.restoreState()
 
 
-def tarp():
+def tarp(sign_fn=None, bin_fn=None, name="tarp-area-signs-2x3ft"):
+    sign_fn = sign_fn or draw_sign
+    bin_fn = bin_fn or draw_bin
     SW, SH = 610 * mm, 914 * mm
     X0 = (SW - 2 * A4W) / 2                 # 8 mm sides
     gh = 3 * A4H + 2 * BH                   # 840 mm
     Y0 = (SH - gh) / 2                      # 37 mm top/bottom
-    out = os.path.join(HERE, "tarp-area-signs-2x3ft.pdf")
+    out = os.path.join(HERE, name + ".pdf")
     c = canvas.Canvas(out, pagesize=(SW, SH))
     c.setTitle("Essentialist Vegetable Farm area signs and bin labels - tarpaulin 2 x 3 ft")
     top = SH - Y0
@@ -176,9 +181,9 @@ def tarp():
             cells.append((X0 + col * BW, top - 3 * A4H - (row + 1) * BH, "bin", None))
     for x, y, kind, s in cells:
         if kind == "sign":
-            place(c, x, y, draw_sign, s)
+            place(c, x, y, sign_fn, s)
         else:
-            place(c, x, y, draw_bin)
+            place(c, x, y, bin_fn)
     # cut marks in the margins
     c.setLineWidth(0.3 * mm)
     ln, off = 5 * mm, 1.5 * mm
@@ -194,6 +199,67 @@ def tarp():
     c.showPage()
     c.save()
     return out
+
+
+# ---- Reversed style: white letters on solid black --------------------------
+# Black is the most sun-resistant ink and the letters are bare white tarp,
+# so contrast holds as the black slowly softens toward charcoal.
+_lw = Image.new("RGBA", L.src.size, (255, 255, 255, 0))
+_lw.putalpha(L._m)
+_lw = _lw.resize((_lw.width * 4, _lw.height * 4), Image.LANCZOS)
+_lw.save(os.path.join(HERE, "logo_white.png"))
+LOGO_WHITE = ImageReader(os.path.join(HERE, "logo_white.png"))
+
+
+def black_ground(c, w, h):
+    c.setFillColor(black)
+    c.rect(0, 0, w, h, stroke=0, fill=1)
+    c.setStrokeColor(white)
+    c.setLineWidth(1.2 * mm)
+    c.rect(7 * mm, 7 * mm, w - 14 * mm, h - 14 * mm)
+
+
+def draw_sign_rev(c, s):
+    w, h = A4W, A4H
+    black_ground(c, w, h)
+    m = 7 * mm
+    head = 30 * mm
+    logo_h = 18 * mm
+    logo_w = logo_h * L.LOGO_RATIO
+    lx = m + 10 * mm
+    c.drawImage(LOGO_WHITE, lx, h - m - head / 2 - logo_h / 2 - 1 * mm, logo_w, logo_h, mask="auto")
+    size = fit(FARM, w - 2 * m - logo_w - 30 * mm, 26)
+    c.setFillColor(white)
+    c.setFont(F, size)
+    c.drawString(lx + logo_w + 6 * mm, h - m - head / 2 - size * 0.36, FARM)
+    c.setStrokeColor(white)
+    c.setLineWidth(0.8 * mm)
+    c.line(m + 10 * mm, h - m - head, w - m - 10 * mm, h - m - head)
+    bx, by = m + 12 * mm, m + 10 * mm
+    bw, bh = w - 2 * (m + 12 * mm), h - m - head - 8 * mm - by
+    if s.get("nosmoke"):
+        r = bh * 0.42
+        no_smoking(c, bx + r, by + bh / 2, r, inv=True)
+        tx = bx + 2 * r + 12 * mm
+        text_block(c, s["lines"], s.get("sub"), tx, by, bx + bw - tx, bh, sub_ratio=0.42, color=white)
+    else:
+        text_block(c, s["lines"], s.get("sub"), bx, by, bw, bh, color=white)
+
+
+def draw_bin_rev(c, s=BIN):
+    w, h = BW, BH
+    black_ground(c, w, h)
+    m = 7 * mm
+    logo_w = 30 * mm
+    logo_h = logo_w / L.LOGO_RATIO
+    c.drawImage(LOGO_WHITE, m + 8 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
+    c.setStrokeColor(white)
+    c.setLineWidth(0.8 * mm)
+    x = m + 8 * mm + logo_w + 7 * mm
+    c.line(x, m + 9 * mm, x, h - m - 9 * mm)
+    bx = x + 8 * mm
+    text_block(c, s["lines"], s.get("sub"), bx, m + 8 * mm, w - m - 8 * mm - bx, h - 2 * m - 16 * mm,
+               sub_ratio=0.3, gap_ratio=0.22, color=white)
 
 
 def main():
@@ -214,6 +280,19 @@ def main():
     c.showPage()
     c.save()
     print(tarp())
+    c = canvas.Canvas(os.path.join(HERE, "area-signs-a4-reverse.pdf"), pagesize=(A4W, A4H))
+    c.setTitle("Essentialist Vegetable Farm area signs (A4, white on black)")
+    for s in SIGNS:
+        draw_sign_rev(c, s)
+        c.showPage()
+    c.save()
+    c = canvas.Canvas(os.path.join(HERE, "bin-labels-half-a4-reverse.pdf"), pagesize=(A4W, A4H))
+    c.setTitle("Essentialist Vegetable Farm bin labels (half A4, white on black)")
+    place(c, 0, BH, draw_bin_rev)
+    place(c, 0, 0, draw_bin_rev)
+    c.showPage()
+    c.save()
+    print(tarp(draw_sign_rev, draw_bin_rev, "tarp-area-signs-2x3ft-reverse"))
 
 
 if __name__ == "__main__":
