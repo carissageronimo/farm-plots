@@ -482,6 +482,8 @@ SMALL = [
     dict(lines=["WALANG TALIM"], sub="(Dull tools)"),
     dict(lines=["WASH AREA"], sub="(Soiled)"),
     dict(lines=["WASH AREA"], sub="(Leafy)"),
+    dict(lines=["PANDILIG"], sub="(Watering cans)"),
+    dict(lines=["PE PIPES"], sub="(Mga tubo)"),
 ]
 
 
@@ -587,5 +589,107 @@ def main3():
         print(tarp3(style))
 
 
+# ---- Fence signs (1/3 A4 lengthwise, 297 x 70 mm) and tarp v4 -----------------------------
+FW, FH = A4W, A4H / 3
+FENCE = dict(lines=["Salamat po sa hindi pagtatapon", "ng basura sa aming bakod."],
+             sub="Thank you for keeping our fence clean.")
+
+
+def draw_fence(c, style, s=FENCE):
+    w, h = FW, FH
+    g, brand, _ = STYLES[style]
+    ground(c, w, h, style)
+    m = 7 * mm
+    logo_w = 22 * mm
+    logo_h = logo_w / L.LOGO_RATIO
+    c.drawImage(LOGOS[style], m + 6 * mm, h / 2 - logo_h / 2, logo_w, logo_h, mask="auto")
+    x = m + 6 * mm + logo_w + 5 * mm
+    c.setStrokeColor(brand)
+    c.setLineWidth(0.6 * mm)
+    c.line(x, m + 5 * mm, x, h - m - 5 * mm)
+    bx = x + 5 * mm
+    text_block(c, s["lines"], s["sub"], bx, m + 4 * mm, w - m - 5 * mm - bx, h - 2 * m - 8 * mm,
+               sub_ratio=0.62, gap_ratio=0.35, color=white)
+
+
+def tarp4(style):
+    SW, SH = 610 * mm, 914 * mm
+    X0 = (SW - 2 * A4W) / 2                # 8 mm sides
+    top = SH - 37 * mm
+    out = os.path.join(HERE, f"tarp-area-signs-2x3ft-{style}.pdf")
+    c = canvas.Canvas(out, pagesize=(SW, SH))
+    c.setTitle(f"Essentialist Vegetable Farm signs and labels - tarpaulin 2 x 3 ft ({style})")
+    for i, s in enumerate(SIGNS2):
+        col, row = i % 2, i // 2
+        place(c, X0 + col * A4W, top - (row + 1) * A4H, draw_sign2, s, style)
+    gb = top - 3 * A4H
+    fx = X0 + A4W                           # 3 fence signs fill the 6th A4 slot
+    for k in range(3):
+        place(c, fx, gb + (2 - k) * FH, draw_fence, style)
+    sy_top = gb - 10 * mm
+    for i, s in enumerate(SMALL[:6]):       # 2 x 3 block
+        col, row = i % 2, i // 2
+        place(c, X0 + col * QW, sy_top - (row + 1) * QH, draw_small, s, style)
+    rx = X0 + 2 * QW                        # 2 more, turned sideways, in the strip to the right
+    for k, s in enumerate(SMALL[6:8]):
+        x = rx + k * QH
+        c.saveState()
+        c.translate(x + QH, sy_top - QW)
+        c.rotate(90)
+        draw_small(c, s, style)
+        c.restoreState()
+    sb = sy_top - 3 * QH
+    c.setStrokeColor(black)
+    c.setLineWidth(0.3 * mm)
+    ln, off, short = 5 * mm, 1.5 * mm, 3 * mm
+    side = X0 - off - 1 * mm
+    for x in (X0, X0 + A4W, X0 + 2 * A4W):
+        c.line(x, top + off, x, top + off + ln)
+        c.line(x, gb - off, x, gb - off - short)
+    for y in (top, top - A4H, top - 2 * A4H, gb):
+        c.line(X0 - off, y, X0 - off - side, y)
+        c.line(SW - X0 + off, y, SW - X0 + off + side, y)
+    for y in (gb + FH, gb + 2 * FH):        # fence sign cuts, right column only
+        c.line(SW - X0 + off, y, SW - X0 + off + side, y)
+    for x in (X0, X0 + QW, X0 + 2 * QW, rx + QH, rx + 2 * QH):
+        c.line(x, sy_top + off, x, sy_top + off + short)
+    for x in (X0, X0 + QW, X0 + 2 * QW):
+        c.line(x, sb - off, x, sb - off - ln)
+    for x in (rx + QH, rx + 2 * QH):
+        c.line(x, sy_top - QW - off, x, sy_top - QW - off - ln)
+    for k in range(4):
+        y = sy_top - k * QH
+        c.line(X0 - off, y, X0 - off - side, y)
+    c.line(rx + 2 * QH + off, sy_top, rx + 2 * QH + off + side, sy_top)
+    c.line(rx + 2 * QH + off, sy_top - QW, rx + 2 * QH + off + side, sy_top - QW)
+    c.showPage()
+    c.save()
+    return out
+
+
+def main4():
+    for style in STYLES:
+        c = canvas.Canvas(os.path.join(HERE, f"area-signs-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm area signs (A4, {style})")
+        for s in SIGNS2:
+            draw_sign2(c, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"small-labels-quarter-a4-{style}.pdf"), pagesize=(A4H, A4W))
+        c.setTitle(f"Essentialist Vegetable Farm small labels (quarter A4, {style})")
+        for p in range(0, len(SMALL), 4):
+            for k, s in enumerate(SMALL[p:p + 4]):
+                place(c, 0, A4W - (k + 1) * QH, draw_small, s, style)
+            c.showPage()
+        c.save()
+        c = canvas.Canvas(os.path.join(HERE, f"fence-signs-third-a4-{style}.pdf"), pagesize=(A4W, A4H))
+        c.setTitle(f"Essentialist Vegetable Farm fence signs (1/3 A4, {style})")
+        for k in range(3):
+            place(c, 0, A4H - (k + 1) * FH, draw_fence, style)
+        c.showPage()
+        c.save()
+        print(tarp4(style))
+
+
 if __name__ == "__main__":
-    main3()
+    main4()
